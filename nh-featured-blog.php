@@ -25,10 +25,66 @@ if (!defined('ABSPATH')) {
 }
 
 define('SITE_URL' , get_site_url());
-function wpb_load_widget() {
-    register_widget( 'nh_fb_widget' );
+
+class Featured_Blog{
+    function __construct(){
+        add_action( 'widgets_init', array($this,'wpb_load_widget'));
+        add_action( 'add_meta_boxes', array($this,'nh_custom_meta'));
+        add_action( 'save_post', array($this,'custom_save_data'));
+        add_filter( 'rest_post_query', array($this, 'modify_rest_post_query'), 10, 2 );
+    }
+    function wpb_load_widget() {
+        register_widget( 'nh_fb_widget' );
+    }
+    /* Adding Featured Blog CheckBox */
+    function nh_custom_meta() {
+        add_meta_box( 
+            'nh_meta',
+            __( 'Featured Posts', 'nh-textdomain' ),
+            array($this, 'nh_meta_callback'),
+            'post' ,
+            'side',
+            'high'
+        );
+    }
+    function nh_meta_callback( $post ) {
+        wp_nonce_field( 'custom_save_data' , 'custom_featured_nonce' );
+        $featured = get_post_meta($post->ID, '_featured_post', true);
+        echo "<label for='_featured_post'>".__('Is Featured? ', 'foobar')."</label>";
+        echo "<input type='checkbox' name='_featured_post' id='featured_post' value='1' " . checked(1, $featured, false) . " />";
+          
+    }
+    function custom_save_data( $post_id ) {
+        if( ! isset( $_POST['custom_featured_nonce'] ) ){
+            return;
+        }
+    
+        if( ! wp_verify_nonce( $_POST['custom_featured_nonce'], 'custom_save_data') ) {
+            return;
+        }
+        if( defined('DOING_AUTOSAVE') && DOING_AUTOSAVE ){
+            return;
+        }
+        if( ! current_user_can( 'edit_post', $post_id ) ) {
+            return;
+        }
+    
+        if ( isset( $_POST['_featured_post'] ) ) {
+            update_post_meta( $post_id, '_featured_post', 1 );
+        } else {
+            delete_post_meta( $post_id, '_featured_post' );
+        }
+    }
+    function modify_rest_post_query( $args, $request ){
+        if ( $city = $request->get_param( '_featured_post' ) ) {
+            $args['meta_key'] = '_featured_post';
+            $args['meta_value'] = $city;
+        }
+        return $args;
+    }
+   
 }
-add_action( 'widgets_init', 'wpb_load_widget' );
+
 
 class nh_fb_widget extends WP_Widget
 {
@@ -94,58 +150,9 @@ class nh_fb_widget extends WP_Widget
     }
 }
 
-
-/* Adding Featured Blog CheckBox */
-function nh_custom_meta() {
-    add_meta_box( 
-        'nh_meta',
-         __( 'Featured Posts', 'nh-textdomain' ),
-        'nh_meta_callback',
-        'post' ,
-        'side',
-        'high'
-    );
+if( class_exists("Featured_Blog") ){
+    new Featured_Blog();
 }
-add_action( 'add_meta_boxes', 'nh_custom_meta' );
-function nh_meta_callback( $post ) {
-    wp_nonce_field( 'custom_save_data' , 'custom_featured_nonce' );
-    $featured = get_post_meta($post->ID, '_featured_post', true);
-    echo "<label for='_featured_post'>".__('Is Featured? ', 'foobar')."</label>";
-    echo "<input type='checkbox' name='_featured_post' id='featured_post' value='1' " . checked(1, $featured, false) . " />";
-      
-}
-function custom_save_data( $post_id ) {
-    if( ! isset( $_POST['custom_featured_nonce'] ) ){
-        return;
-    }
 
-    if( ! wp_verify_nonce( $_POST['custom_featured_nonce'], 'custom_save_data') ) {
-        return;
-    }
-    if( defined('DOING_AUTOSAVE') && DOING_AUTOSAVE ){
-        return;
-    }
-    if( ! current_user_can( 'edit_post', $post_id ) ) {
-        return;
-    }
-
-    if ( isset( $_POST['_featured_post'] ) ) {
-        update_post_meta( $post_id, '_featured_post', 1 );
-    } else {
-        delete_post_meta( $post_id, '_featured_post' );
-    }
-}
-add_action( 'save_post', 'custom_save_data' );
-
-// rest_{$this->post_type}_query
-//add_filter( 'rest_horario_busao_query',...
-///wp-json/wp/v2/horario_busao?city=London
-add_filter( 'rest_post_query', function( $args, $request ){
-    if ( $city = $request->get_param( '_featured_post' ) ) {
-        $args['meta_key'] = '_featured_post';
-        $args['meta_value'] = $city;
-    }
-    return $args;
-}, 10, 2 );
 
 ?>
