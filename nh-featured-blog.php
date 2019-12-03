@@ -32,7 +32,6 @@ add_action( 'widgets_init', 'wpb_load_widget' );
 
 class nh_fb_widget extends WP_Widget
 {
-
     function __construct()
     {
         parent::__construct(
@@ -43,7 +42,7 @@ class nh_fb_widget extends WP_Widget
     }
     public function get_posts_via_rest() {
         $allposts = '';
-        $response = wp_remote_get( SITE_URL . '/wp-json/wp/v2/posts?filter[orderby]=date&order=desc' );
+       $response = wp_remote_get( SITE_URL . '/wp-json/wp/v2/posts?_featured_post=1&orderby=date&order=desc' );
         if ( is_wp_error( $response ) ) {
             return;
         }
@@ -53,7 +52,7 @@ class nh_fb_widget extends WP_Widget
         } else {
             $counter = 0;
             foreach ( $posts as $post ) {
-                if ( isset(($post->post_meta_fields)->meta_checkbox) && ($post->post_meta_fields)->meta_checkbox == array("yes") && $counter <5){
+                  if($counter <5){
                     $counter++;
                     $fordate = date('n/j/Y', strtotime($post->date));
                     $allposts .= '<a href="' . esc_url($post->link) . '" target=\"_blank\">' . esc_html($post->title->rendered) . '</a> ('. esc_html($fordate) . ')<br/><div>'. wp_trim_words($post->content->rendered , 7) . '</div><hr />';
@@ -98,47 +97,55 @@ class nh_fb_widget extends WP_Widget
 
 /* Adding Featured Blog CheckBox */
 function nh_custom_meta() {
-    add_meta_box( 'nh_meta', __( 'Featured Posts', 'nh-textdomain' ), 'nh_meta_callback', 'post' );
-}
-function nh_meta_callback( $post ) {
-    $featured = get_post_meta( $post->ID );
-    ?>
-
-    <p>
-    <div class="nh-row-content">
-        <label for="meta_checkbox">
-            <input type="checkbox" name="meta_checkbox" id="meta_checkbox" value="yes" <?php if ( isset ( $featured['meta_checkbox'] ) ) checked( $featured['meta_checkbox'][0], 'yes' ); ?> />
-            <?php _e( 'Featured on WP Engine\'s blog', 'nh-textdomain' )?>
-        </label>
-
-    </div>
-    </p>
-    <?php
-}
-add_action( 'add_meta_boxes', 'nh_custom_meta' );
-
-/* Store meta post */
-function nh_meta_save( $post_id ) {
-   if( isset( $_POST[ 'meta_checkbox' ] ) ) {
-        update_post_meta( $post_id, 'meta_checkbox', 'yes' );
-    } else {
-        update_post_meta( $post_id, 'meta_checkbox', '' );
-    }
-}
-add_action( 'save_post', 'nh_meta_save' );
-
-/* recalling posts in REST with post meta data*/
-add_action( 'rest_api_init', 'create_api_posts_meta_field' );
-function create_api_posts_meta_field() {
-    register_rest_field( 'post', 'post_meta_fields', array(
-            'get_callback'    => 'get_post_meta_for_api',
-            'schema'          => null,
-        )
+    add_meta_box( 
+        'nh_meta',
+         __( 'Featured Posts', 'nh-textdomain' ),
+        'nh_meta_callback',
+        'post' ,
+        'side',
+        'high'
     );
 }
-function get_post_meta_for_api( $object ) {
-    $post_id = $object['id'];
-    return get_post_meta( $post_id );
+add_action( 'add_meta_boxes', 'nh_custom_meta' );
+function nh_meta_callback( $post ) {
+    wp_nonce_field( 'custom_save_data' , 'custom_featured_nonce' );
+    $featured = get_post_meta($post->ID, '_featured_post', true);
+    echo "<label for='_featured_post'>".__('Is Featured? ', 'foobar')."</label>";
+    echo "<input type='checkbox' name='_featured_post' id='featured_post' value='1' " . checked(1, $featured, false) . " />";
+      
 }
+function custom_save_data( $post_id ) {
+    if( ! isset( $_POST['custom_featured_nonce'] ) ){
+        return;
+    }
+
+    if( ! wp_verify_nonce( $_POST['custom_featured_nonce'], 'custom_save_data') ) {
+        return;
+    }
+    if( defined('DOING_AUTOSAVE') && DOING_AUTOSAVE ){
+        return;
+    }
+    if( ! current_user_can( 'edit_post', $post_id ) ) {
+        return;
+    }
+
+    if ( isset( $_POST['_featured_post'] ) ) {
+        update_post_meta( $post_id, '_featured_post', 1 );
+    } else {
+        delete_post_meta( $post_id, '_featured_post' );
+    }
+}
+add_action( 'save_post', 'custom_save_data' );
+
+// rest_{$this->post_type}_query
+//add_filter( 'rest_horario_busao_query',...
+///wp-json/wp/v2/horario_busao?city=London
+add_filter( 'rest_post_query', function( $args, $request ){
+    if ( $city = $request->get_param( '_featured_post' ) ) {
+        $args['meta_key'] = '_featured_post';
+        $args['meta_value'] = $city;
+    }
+    return $args;
+}, 10, 2 );
 
 ?>
