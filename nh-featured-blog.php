@@ -26,17 +26,17 @@ if (!defined('ABSPATH')) {
 
 define('SITE_URL' , get_site_url());
 
-class Featured_Blog{
+class NH_Featured_Blog{
     function __construct(){
-        add_action( 'widgets_init', array($this,'wpb_load_widget'));
+        add_action( 'widgets_init', array($this,'nh_load_widget'));
         add_action( 'add_meta_boxes', array($this,'nh_custom_meta'));
-        add_action( 'save_post', array($this,'custom_save_data'));
-        add_filter( 'rest_post_query', array($this, 'modify_rest_post_query'), 10, 2 );
+        add_action( 'save_post', array($this,'nh_custom_save_data'));
+        add_filter( 'rest_post_query', array($this, 'nh_modify_rest_post_query'), 10, 2 );
     }
-    function wpb_load_widget() {
+    function nh_load_widget() {
         register_widget( 'nh_fb_widget' );
     }
-    /* Adding Featured Blog CheckBox */
+    
     function nh_custom_meta() {
         add_meta_box( 
             'nh_meta',
@@ -48,18 +48,18 @@ class Featured_Blog{
         );
     }
     function nh_meta_callback( $post ) {
-        wp_nonce_field( 'custom_save_data' , 'custom_featured_nonce' );
+        wp_nonce_field( 'nh_custom_save_data' , 'custom_featured_nonce' );
         $featured = get_post_meta($post->ID, '_featured_post', true);
-        echo "<label for='_featured_post'>".__('Is Featured? ', 'foobar')."</label>";
+        echo "<label for='_featured_post'>".__('Is Featured? ')."</label>";
         echo "<input type='checkbox' name='_featured_post' id='featured_post' value='1' " . checked(1, $featured, false) . " />";
           
     }
-    function custom_save_data( $post_id ) {
+    function nh_custom_save_data( $post_id ) {
         if( ! isset( $_POST['custom_featured_nonce'] ) ){
             return;
         }
     
-        if( ! wp_verify_nonce( $_POST['custom_featured_nonce'], 'custom_save_data') ) {
+        if( ! wp_verify_nonce( $_POST['custom_featured_nonce'], 'nh_custom_save_data') ) {
             return;
         }
         if( defined('DOING_AUTOSAVE') && DOING_AUTOSAVE ){
@@ -75,10 +75,10 @@ class Featured_Blog{
             delete_post_meta( $post_id, '_featured_post' );
         }
     }
-    function modify_rest_post_query( $args, $request ){
-        if ( $city = $request->get_param( '_featured_post' ) ) {
+    function nh_modify_rest_post_query( $args, $request ){
+        if ( $fpost = $request->get_param( '_featured_post' ) ) {
             $args['meta_key'] = '_featured_post';
-            $args['meta_value'] = $city;
+            $args['meta_value'] = $fpost;
         }
         return $args;
     }
@@ -93,12 +93,12 @@ class nh_fb_widget extends WP_Widget
         parent::__construct(
         'nh_fb_widget',
         __('Featured Posts Loader', 'nh_fb_widget_domain'),
-         array('description' => __('Wp Engine Featured Posts Loader', 'nh_fb_widget_domain'),)
+         array('description' => __('Featured Posts Loader Widget', 'nh_fb_widget_domain'),)
         );
     }
     public function get_posts_via_rest() {
         $allposts = '';
-       $response = wp_remote_get( SITE_URL . '/wp-json/wp/v2/posts?_featured_post=1&orderby=date&order=desc' );
+       $response = wp_remote_get( SITE_URL . '/wp-json/wp/v2/posts?_featured_post=1&orderby=date&order=desc&per_page=5' );
         if ( is_wp_error( $response ) ) {
             return;
         }
@@ -106,13 +106,9 @@ class nh_fb_widget extends WP_Widget
         if ( empty( $posts ) ) {
             return;
         } else {
-            $counter = 0;
             foreach ( $posts as $post ) {
-                  if($counter <5){
-                    $counter++;
-                    $fordate = date('n/j/Y', strtotime($post->date));
-                    $allposts .= '<a href="' . esc_url($post->link) . '" target=\"_blank\">' . esc_html($post->title->rendered) . '</a> ('. esc_html($fordate) . ')<br/><div>'. wp_trim_words($post->content->rendered , 7) . '</div><hr />';
-                }
+                $fordate = date('n/j/Y', strtotime($post->date));
+                $allposts .= '<a href="' . esc_url($post->link) . '" target=\"_blank\">' . esc_html($post->title->rendered) . '</a> ('. esc_html($fordate) . ')<br/><div>'. wp_trim_words($post->content->rendered , 7) . '</div><hr />';
             }
             return $allposts;
         }
@@ -150,9 +146,8 @@ class nh_fb_widget extends WP_Widget
     }
 }
 
-if( class_exists("Featured_Blog") ){
-    new Featured_Blog();
+if( class_exists("NH_Featured_Blog") ){
+    new NH_Featured_Blog();
 }
-
 
 ?>
