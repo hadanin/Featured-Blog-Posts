@@ -21,5 +21,5 @@ By adding "Featured Posts Loader" Widget to you website, you mark "Featured on W
 == Official Site ==
 
 * For More Information
-* http://my-webland.com/portfolio
+* http://my-webland.com/
 * Or Advanced feature drop mail me@my-webland.com
