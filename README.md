@@ -13,6 +13,7 @@ By adding "Featured Posts Loader" Widget to you website, you mark "Featured on W
 * Widget "Featured Posts Loader" will appear in Dashboard->Appearance->Widgets.
 
 **Official Site**
+
 For More Information and latest version: 
 https://wordpress.org/plugins/nh-featured-posts/
 
